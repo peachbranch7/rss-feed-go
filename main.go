@@ -30,10 +30,8 @@ const (
  maxConcurrent = 3
 )
 
-// 同時実行数を制御するため
 var s = semaphore.NewWeighted(maxConcurrent)
 
-// 生成されたGoroutineが全て終わるのを待つため
 var wg = &sync.WaitGroup{}
 
 func main() {
@@ -42,24 +40,17 @@ func main() {
   wg.Add(1)
   go exec(ctx, url)
  }
- // Addされた回数、Doneされるまで待つ
- // 待つ理由は main() が終了すると、goroutineも中断されるため
  wg.Wait()
 
 }
 
 func exec(ctx context.Context, url string) {
- // セマフォから一つボールを取る
- // 実行中であることをセマフォに伝える
  err := s.Acquire(ctx, 1)
  if err != nil {
   fmt.Fprintln(os.Stderr,fmt.Errorf("failed to acquire semaphore: %s", err))
   os.Exit(1)
  }
- // 関数が終了する時に呼び出される
  defer func() {
-  // セマフォにボールを返す
-  // 返すと別のGoroutineがボールを取れるようになる（実行できるようになる）
   s.Release(1)
   wg.Done()
  }()
@@ -79,25 +70,20 @@ func exec(ctx context.Context, url string) {
 }
 
 func getRSSFeed(feedURL string) ([]byte, error) {
- // URLのパース
  parsedURL, err := url.Parse(feedURL)
  if err != nil {
   fmt.Fprintln(os.Stderr, fmt.Errorf("failed to parse url, error: %s", err))
   return nil, err
  }
 
- // リクエストの生成
  req, _ := http.NewRequest("GET", parsedURL.String(), nil)
- // クライアントの生成
  client := new(http.Client)
- // リクエスト送信
  resp, err := client.Do(req)
  if err != nil {
   fmt.Fprintln(os.Stderr, fmt.Errorf("failed to send request, err: %s", err))
   return nil, err
  }
 
- // レスポンスのボディをバイト型の配列に変換
  body, err := ioutil.ReadAll(resp.Body)
  if err != nil {
  fmt.Fprintln(os.Stderr, fmt.Errorf("failed to read body, err: %s", err))
@@ -121,7 +107,6 @@ func saveToFile(filename, contents string) error {
  return nil
 }
 
-// filename
 func createFilename(feedURL string) (string, error) {
  current := time.Now().Unix()
  splitURL := strings.Split(feedURL, "/")
